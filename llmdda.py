@@ -336,26 +336,31 @@ def figures(fr, px, ts, drift_at=3000):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.family": "DejaVu Serif", "font.size": 9,
+    plt.rcParams.update({"font.family": "serif", "font.serif": ["Liberation Serif", "Times New Roman", "DejaVu Serif"],
+                         "mathtext.fontset": "stix", "font.size": 9,
                          "axes.spines.top": False, "axes.spines.right": False,
                          "axes.titlesize": 9.5, "axes.titleweight": "bold",
                          "legend.frameon": False, "savefig.dpi": 600})
     col = {"Self-reported confidence": "#9a9a9a", "Calibrated confidence": "#4c78a8",
            "Risk-conditioned (static, rubber-stamp)": "#e8a33d", "LLM-DDA (full)": "#b2182b"}
+    flab = {"Self-reported confidence": "Verbal-confidence gate",
+            "Calibrated confidence": "Calibrated-confidence gate",
+            "Risk-conditioned (static, rubber-stamp)": "Risk rule, rubber-stamp review, no feedback",
+            "LLM-DDA (full)": "LLM-DDA (full)"}
 
     # ---- Figure 1 -------------------------------------------------------
     fig, ax = plt.subplots(1, 2, figsize=(7.2, 3.0), gridspec_kw={"width_ratios": [1.1, 1]})
     for lab, g in fr.groupby("curve", sort=False):
         g = g.sort_values("automation")
         ax[0].plot(100 * g.automation, g.mean_cost, "-o", ms=2.6, lw=1.4,
-                   color=col[lab], label=lab)
+                   color=col[lab], label=flab[lab])
         k = g.mean_cost.idxmin()
         ax[0].plot(100 * g.automation[k], g.mean_cost[k], "*", ms=10,
                    color=col[lab], mec="k", mew=0.4)
-    ax[0].set_xlabel("Diagnoses executed autonomously (%)")
+    ax[0].set_xlabel("Autonomy: diagnoses executed without review (%)")
     ax[0].set_ylabel("Mean operational cost per incident (CU)")
-    ax[0].set_title("(a) Cost-automation frontier")
-    ax[0].legend(fontsize=7, loc="upper left")
+    ax[0].set_title("(a) Cost–autonomy frontier")
+    ax[0].legend(fontsize=7, loc="upper right")
     piv = px.pivot(index="phi", columns="q", values="escapes_k")
     accs = px.groupby("q").accuracy.mean().reindex(piv.columns)
     im = ax[1].imshow(piv.values, origin="lower", aspect="auto", cmap="magma_r",
@@ -363,7 +368,7 @@ def figures(fr, px, ts, drift_at=3000):
     ax[1].axhline(REVIEW["rs"]["phi"], color="w", lw=0.6, ls=":")
     ax[1].axhline(REVIEW["ff"]["phi"], color="w", lw=0.6, ls=":")
     ax[1].text(accs.iloc[0] + 0.005, REVIEW["rs"]["phi"] + 0.05, "rubber-stamp", color="w", fontsize=6.5)
-    ax[1].text(accs.iloc[0] + 0.005, REVIEW["ff"]["phi"] + 0.05, "forcing fn.", color="w", fontsize=6.5)
+    ax[1].text(accs.iloc[0] + 0.005, REVIEW["ff"]["phi"] + 0.05, "forcing function", color="w", fontsize=6.5)
     ax[1].set_xlabel("Mean diagnostic accuracy of the LLM")
     ax[1].set_ylabel("Complacency sensitivity $\\varphi$")
     ax[1].set_title("(b) Escaped errors under full human review")
@@ -376,8 +381,8 @@ def figures(fr, px, ts, drift_at=3000):
     # ---- Figure 2 -------------------------------------------------------
     tcol = {"Calibrated confidence threshold (selective deferral)": "#4c78a8",
             "- both feedback loops (static)": "#e8a33d", "LLM-DDA (full)": "#b2182b"}
-    tlab = {"Calibrated confidence threshold (selective deferral)": "Calibrated threshold (static)",
-            "- both feedback loops (static)": "LLM-DDA without feedback",
+    tlab = {"Calibrated confidence threshold (selective deferral)": "Calibrated-confidence gate",
+            "- both feedback loops (static)": "LLM-DDA without feedback loops",
             "LLM-DDA (full)": "LLM-DDA (full)"}
     fig, ax = plt.subplots(1, 2, figsize=(7.2, 2.8))
     for k, (c, a) in ts.items():
@@ -390,9 +395,9 @@ def figures(fr, px, ts, drift_at=3000):
     ax[0].text(drift_at + 80, ax[0].get_ylim()[0] + 0.15, "unseen vendor release:\none fault class drifts", fontsize=7, va="bottom")
     ax[0].set_ylabel("Rolling mean cost (CU, 300 incidents)")
     ax[0].set_title("(a) Operational cost under drift")
-    ax[1].set_ylabel("Drifted-class diagnoses executed (%)")
+    ax[1].set_ylabel("Drifted-class autonomy (%)")
     ax[1].set_title("(b) Delegation boundary, drifted fault class")
-    ax[0].legend(fontsize=7, loc="upper left")
+    ax[1].legend(fontsize=7, loc="lower left", frameon=True, facecolor="white", edgecolor="none", framealpha=1)
     ax[1].set_ylim(0, 75)
     fig.tight_layout()
     fig.savefig(os.path.join(OUT, "figure2.png")); fig.savefig(os.path.join(OUT, "figure2.pdf"))

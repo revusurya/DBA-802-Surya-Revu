@@ -8,14 +8,14 @@ import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 t1 = pd.read_csv(os.path.join(HERE, "results", "table1_policies.csv"), index_col=0)
-short = {"Human review of all (rubber-stamp)": "Human review (all)",
+short = {"Human review of all (rubber-stamp)": "Review all (rubber-stamp)",
          "Full autonomy": "Full autonomy",
-         "Self-reported confidence threshold": "Self-confidence gate",
-         "Calibrated confidence threshold (selective deferral)": "Calibrated gate",
+         "Self-reported confidence threshold": "Verbal-confidence gate",
+         "Calibrated confidence threshold (selective deferral)": "Calibrated-confidence gate",
          "LLM-DDA (full)": "LLM-DDA"}
 t1 = t1.loc[list(short)]
 
-plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 9})
+plt.rcParams.update({"font.family": "serif", "font.serif": ["Liberation Serif", "DejaVu Serif"], "mathtext.fontset": "stix", "font.size": 9})
 fig = plt.figure(figsize=(13.28, 5.31), dpi=150)
 ax = fig.add_axes([0.0, 0.0, 0.56, 1.0]); ax.axis("off"); ax.set_xlim(0, 10); ax.set_ylim(0, 10)
 ax.text(0.3, 9.35, "Risk-conditioned delegation of LLM network diagnoses", fontsize=13, weight="bold")
@@ -34,7 +34,7 @@ for i, (txt, c) in enumerate(steps):
         ax.annotate("", (x + 1.9, y + 0.62), (x + 1.75, y + 0.62),
                     arrowprops=dict(arrowstyle="-|>", color="#555", lw=1))
 for x, txt, c in [(5.0, "Execute autonomously", "#d9ecd9"),
-                  (7.3, "Escalate: engineer states\ndiscriminating evidence\n(forcing function)", "#f6d2d2")]:
+                  (7.3, "Escalate: forcing-function review\n(engineer states the\ndiscriminating evidence)", "#f6d2d2")]:
     ax.add_patch(FancyBboxPatch((x, 4.9), 2.1, 1.3, boxstyle="round,pad=0.05", fc=c, ec="#555", lw=0.8))
     ax.text(x + 1.05, 5.55, txt, ha="center", va="center", fontsize=7.2)
     ax.annotate("", (x + 1.05, 6.25), (8.85, 7.55), arrowprops=dict(arrowstyle="-|>", color="#555", lw=1))
@@ -43,7 +43,7 @@ ax.text(4.9, 3.3, "Outcome feedback: recalibrate $\\hat p$ (L5) and contract or 
         "drifted class: autonomous share 59% → 17%, escaped errors 381 → 201 per 1000",
         ha="center", va="center", fontsize=7.6)
 ax.text(0.4, 1.4, "Simulation benchmark: 6,000-incident streams x 30 seeds, 6 fault classes,\n"
-        "overconfident LLM surrogate (self-confidence 0.95 vs accuracy 0.64), mid-stream drift.",
+        "overconfident LLM surrogate (verbal confidence 0.95 vs accuracy 0.64), mid-stream drift.",
         fontsize=7.4, color="#333")
 
 cols = ["#9a9a9a"] * 4 + ["#b2182b"]
@@ -57,7 +57,7 @@ for k, (m, lab) in enumerate([("mean_cost", "Mean cost per incident (CU)"),
         a.spines[s].set_visible(False)
     for i, v in enumerate(t1[m + "_mean"]):
         a.text(v + t1[m + "_sd"].iloc[i] + 0.6, i, f"{v:.1f}", va="center", fontsize=7.5)
-fig.text(0.58, 0.05, "LLM-DDA vs calibrated gate: 12.1% lower cost, 61% fewer severe escapes\n(30 seeds, paired Wilcoxon, Holm-adjusted p < 1e-5)",
+fig.text(0.58, 0.05, "LLM-DDA vs calibrated-confidence gate: 12.1% lower cost, 61% fewer severe escapes\n(30 seeds, paired Wilcoxon, Holm-adjusted p < 1e-5)",
          fontsize=7.6)
 fig.savefig(os.path.join(HERE, "results", "graphical_abstract.png"), dpi=300)
 fig.savefig(os.path.join(HERE, "results", "graphical_abstract.pdf"))
