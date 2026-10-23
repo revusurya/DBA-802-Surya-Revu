@@ -283,7 +283,8 @@ def paired(df, ref, others, metric="mean_cost"):
 # --------------------------------------------------------------------------
 # 4. Figure experiments
 # --------------------------------------------------------------------------
-def frontier(seeds=range(5)):
+def frontier(seeds=VAL_SEEDS):
+    """Fig. 1(a): threshold sweep on the validation seeds (never on test seeds)."""
     curves = {"Self-reported confidence": Policy("s", gate="self"),
               "Calibrated confidence": Policy("c", gate="cal"),
               "Risk-conditioned (static, rubber-stamp)": Policy("r", gate="risk"),
@@ -438,6 +439,26 @@ def sensitivity(test_seeds=range(10)):
     return pd.DataFrame(rows)
 
 
+def control_calibrated_forcing():
+    """Control analysis: calibrated-confidence gate escalating to forcing-function review
+    (same review design as LLM-DDA), tuned on validation seeds, compared on the 30 test seeds."""
+    ctrl = tune(Policy("Calibrated gate + forcing-function review", gate="cal", review="ff"))
+    full = tune(FULL)
+    rows = []
+    for sd in TEST_SEEDS:
+        a, b = run(incidents(sd), ctrl), run(incidents(sd), full)
+        rows.append({"seed": sd, **{f"ctrl_{k}": a[k] for k in METRICS}, **{f"full_{k}": b[k] for k in METRICS}})
+    df = pd.DataFrame(rows)
+    out = {"ctrl_theta": ctrl.theta}
+    for k in ("mean_cost", "automation", "severe_k", "escapes_k", "cvar95", "review_min", "drift_esc_k"):
+        d = df[f"ctrl_{k}"] - df[f"full_{k}"]
+        out[f"ctrl_{k}"] = df[f"ctrl_{k}"].mean(); out[f"full_{k}"] = df[f"full_{k}"].mean()
+        out[f"{k}_p"] = stats.wilcoxon(df[f"ctrl_{k}"], df[f"full_{k}"]).pvalue
+        out[f"{k}_wins_full"] = int((d > 0).sum()) if k != "automation" else int((d < 0).sum())
+        out[f"{k}_dz"] = d.mean() / d.std(ddof=1) if d.std(ddof=1) > 0 else np.nan
+    return pd.DataFrame([out]), df
+
+
 def latency(n=6000, seed=0):
     """Wall-clock cost of the LLM-DDA decision layer per incident (excludes the LLM itself)."""
     import time
@@ -492,6 +513,9 @@ def main():
                  ).to_csv(os.path.join(OUT, "figure2_timeseries.csv"), index=False)
     figures(fr, px, ts)
     sensitivity().to_csv(os.path.join(OUT, "sensitivity.csv"), index=False)
+    cs, cd = control_calibrated_forcing()
+    cs.to_csv(os.path.join(OUT, "control_calibrated_forcing.csv"), index=False)
+    cd.to_csv(os.path.join(OUT, "control_calibrated_forcing_per_seed.csv"), index=False)
     latency().to_csv(os.path.join(OUT, "latency.csv"), index=False)
     pd.set_option("display.width", 220, "display.max_columns", 30)
     print(t1.round(3)); print(t2.round(4))

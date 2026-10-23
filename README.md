@@ -20,7 +20,7 @@ All data are synthetic and generated from fixed seeds:
 | Seeds | Used for |
 |---|---|
 | 0-29 | Test streams |
-| 1000-1004 | Threshold tuning |
+| 1000-1004 | Threshold tuning and the Fig. 1(a) frontier sweep (test seeds are never used for tuning) |
 | 500-502 | Fig. 1(b) grid |
 
 A from-scratch run reproduces the committed `results/` files exactly.
@@ -38,6 +38,7 @@ A from-scratch run reproduces the committed `results/` files exactly.
 | `results/tests_*.csv` | Paired tests against baselines (cost, severe escapes) and drift-escape tests |
 | `results/per_seed.csv` | Every policy × seed result |
 | `results/sensitivity.csv` | Supplementary Table S7: one-at-a-time sensitivity (loss scale, review cost, model capability) |
+| `results/control_calibrated_forcing*.csv` | Supplementary Table S8: review-matched control (calibrated gate with the same forcing-function review as LLM-DDA) |
 | `results/latency.csv` | Decision-layer runtime per incident |
 | `results/figure*.csv`, `results/figure*.png/pdf` | Figure data and rendered figures |
 
@@ -45,8 +46,11 @@ A from-scratch run reproduces the committed `results/` files exactly.
 
 | Policy | Mean cost (CU) | Severe escaped errors /1000 | Autonomy |
 |---|---|---|---|
-| Calibrated-confidence gate (selective deferral) | 17.82 | 13.6 | 59.8% |
+| Calibrated-confidence gate, rubber-stamp review | 17.82 | 13.6 | 59.8% |
+| Calibrated-confidence gate, forcing-function review (control) | 16.74 | 7.6 | 59.8% |
 | **LLM-DDA** | **15.66** | **5.2** | 60.1% |
+
+All baseline gates use rubber-stamp review; the control row gives the gate the same forcing-function review as LLM-DDA, so the remaining gap (6.5% cost, 31% severe escapes) comes from the risk-conditioned boundary itself.
 
 Boundary recalibration does not lower average cost, but it contains an unannounced reliability drift. In the drifted fault class:
 

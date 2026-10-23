@@ -11,9 +11,16 @@ t1 = pd.read_csv(os.path.join(HERE, "results", "table1_policies.csv"), index_col
 short = {"Human review of all (rubber-stamp)": "Review all (rubber-stamp)",
          "Full autonomy": "Full autonomy",
          "Self-reported confidence threshold": "Verbal-confidence gate",
-         "Calibrated confidence threshold (selective deferral)": "Calibrated-confidence gate",
+         "Calibrated confidence threshold (selective deferral)": "Calibrated gate (rubber-stamp)",
          "LLM-DDA (full)": "LLM-DDA"}
 t1 = t1.loc[list(short)]
+cc = pd.read_csv(os.path.join(HERE, "results", "control_calibrated_forcing.csv")).iloc[0]
+cper = pd.read_csv(os.path.join(HERE, "results", "control_calibrated_forcing_per_seed.csv"))
+ctrl = pd.DataFrame({"mean_cost_mean": [cc.ctrl_mean_cost], "mean_cost_sd": [cper.ctrl_mean_cost.std()],
+                     "severe_k_mean": [cc.ctrl_severe_k], "severe_k_sd": [cper.ctrl_severe_k.std()]}, index=["ctrl"])
+t1 = pd.concat([t1.iloc[:4][["mean_cost_mean", "mean_cost_sd", "severe_k_mean", "severe_k_sd"]], ctrl,
+                t1.iloc[4:][["mean_cost_mean", "mean_cost_sd", "severe_k_mean", "severe_k_sd"]]])
+labels = list(short.values())[:4] + ["Calibrated gate (forcing fn.)", "LLM-DDA"]
 
 plt.rcParams.update({"font.family": "serif", "font.serif": ["Liberation Serif", "DejaVu Serif"], "mathtext.fontset": "stix", "font.size": 9})
 fig = plt.figure(figsize=(13.28, 5.31), dpi=150)
@@ -46,18 +53,18 @@ ax.text(0.4, 1.4, "Simulation benchmark: 6,000-incident streams x 30 seeds, 6 fa
         "overconfident LLM surrogate (verbal confidence 0.95 vs accuracy 0.64), mid-stream drift.",
         fontsize=7.4, color="#333")
 
-cols = ["#9a9a9a"] * 4 + ["#b2182b"]
+cols = ["#9a9a9a"] * 4 + ["#6f6f6f", "#b2182b"]
 for k, (m, lab) in enumerate([("mean_cost", "Mean cost per incident (CU)"),
                               ("severe_k", "Severe escaped errors per 1000")]):
     a = fig.add_axes([0.665 + k * 0.18, 0.2, 0.13, 0.62])
-    a.barh(range(5), t1[m + "_mean"], xerr=t1[m + "_sd"], color=cols, height=0.65, error_kw=dict(lw=0.7))
-    a.set_yticks(range(5)); a.set_yticklabels(list(short.values()) if k == 0 else [], fontsize=8)
+    a.barh(range(6), t1[m + "_mean"], xerr=t1[m + "_sd"], color=cols, height=0.65, error_kw=dict(lw=0.7))
+    a.set_yticks(range(6)); a.set_yticklabels(labels if k == 0 else [], fontsize=8)
     a.invert_yaxis(); a.set_title(lab, fontsize=8.5, weight="bold")
     for s in ("top", "right"):
         a.spines[s].set_visible(False)
     for i, v in enumerate(t1[m + "_mean"]):
         a.text(v + t1[m + "_sd"].iloc[i] + 0.6, i, f"{v:.1f}", va="center", fontsize=7.5)
-fig.text(0.58, 0.05, "LLM-DDA vs calibrated-confidence gate: 12.1% lower cost, 61% fewer severe escapes\n(30 seeds, paired Wilcoxon, Holm-adjusted p < 1e-5)",
+fig.text(0.58, 0.05, "LLM-DDA vs calibrated gate: 12.1% lower cost and 61% fewer severe escapes (rubber-stamp review);\n6.5% and 31% when the gate uses the same forcing-function review (30 seeds; all paired p < 1e-5)",
          fontsize=7.6)
 fig.savefig(os.path.join(HERE, "results", "graphical_abstract.png"), dpi=300)
 fig.savefig(os.path.join(HERE, "results", "graphical_abstract.pdf"))
