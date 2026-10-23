@@ -2,7 +2,8 @@
 LLM-DDA: risk-conditioned delegation of LLM-generated network diagnoses.
 
 Single-file, reproducible simulation benchmark for the Short Communication
-"Risk-conditioned delegation boundaries for LLM-assisted network diagnosis".
+"Delegating diagnosis: A knowledge-based, risk-conditioned decision-support model
+for LLM-assisted network operations" (Knowledge-Based Systems submission).
 
 The LLM is represented by a stochastic surrogate (no LLM is called): its
 diagnostic accuracy is bounded by evidence coverage, and its self-reported
@@ -23,7 +24,7 @@ from sklearn.linear_model import LogisticRegression
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
 
 # --------------------------------------------------------------------------
-# 1. Incident generator (Layers 1-3 of LLM-DDA)
+# 1. Incident generator (abstracts layers L1-L4 of LLM-DDA)
 # --------------------------------------------------------------------------
 CLASSES = ["Interface/physical", "OSPF adjacency", "BGP policy",
            "MTU/fragmentation", "ACL/firewall", "Config drift"]
@@ -79,14 +80,14 @@ def features(inc, idx, use_e=True, use_flag=True):
 
 
 def fit_calibrator(inc, idx, use_e=True, use_flag=True):
-    """Layer 5: confidence derived from verified outcomes, not model self-report."""
+    """Layer L5: calibrated confidence from verified outcomes (Eq. 2), not verbal self-report."""
     m = LogisticRegression(C=1.0, max_iter=500)
     m.fit(features(inc, idx, use_e, use_flag), inc["correct"][idx])
     return m
 
 
 # --------------------------------------------------------------------------
-# 2. Policies (Layers 5-7)
+# 2. Policies (layers L5-L7; Eqs. 3-6)
 # --------------------------------------------------------------------------
 @dataclass(frozen=True)
 class Policy:
