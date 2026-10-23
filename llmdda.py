@@ -44,7 +44,7 @@ def loss_if_wrong(b, r):
     return 15.0 + 185.0 * b * (1.0 - 0.7 * r)
 
 
-def make_incidents(seed, n_hist=2000, n_test=6000, q=0.90, drift_at=3000):
+def make_incidents(seed, n_hist=2000, n_test=6000, q=0.90, drift_at=3000, loss_scale=1.0):
     """History block (for calibration) followed by a test block with drift."""
     rng = np.random.default_rng(seed)
     drift_cls = int(rng.integers(len(CLASSES)))       # drifted class drawn per seed
@@ -64,7 +64,7 @@ def make_incidents(seed, n_hist=2000, n_test=6000, q=0.90, drift_at=3000):
     s = np.clip(0.80 + 0.15 * q + 0.04 * correct + rng.normal(0, 0.06, n), 0, 0.999)
     u = rng.random((n, 3))                                          # human-review draws
     return dict(cls=cls, e=e, b=b, r=r, flag=flag.astype(float), s=s,
-                correct=correct, p_true=p_true, L=loss_if_wrong(b, r),
+                correct=correct, p_true=p_true, L=loss_scale * loss_if_wrong(b, r),
                 u=u, n_hist=n_hist, comp=comp, drift_cls=drift_cls)
 
 
@@ -110,11 +110,13 @@ C_AUTO_OK, C_MANUAL, C_OVERRIDE = 1.0, 10.0, 10.0
 MEAN_L = float(loss_if_wrong(0.30, 0.68))
 
 
-def run(inc, pol: Policy, phi_override=None):
+def run(inc, pol: Policy, phi_override=None, v_ff=None):
     nh = inc["n_hist"]; n = len(inc["cls"]); test = np.arange(nh, n)
     rv = dict(REVIEW[pol.review])
     if phi_override is not None:
         rv["phi"] = phi_override
+    if v_ff is not None and pol.review == "ff":
+        rv["v"] = v_ff
     cal = None
     if pol.gate in ("cal", "risk"):
         cal = fit_calibrator(inc, np.arange(nh), pol.use_e, pol.use_flag)
@@ -397,6 +399,46 @@ def figures(fr, px, ts, drift_at=3000):
     plt.close(fig)
 
 
+def sensitivity(test_seeds=range(10)):
+    """One-at-a-time sensitivity of the main comparison to the fixed design coefficients.
+    Thresholds are re-tuned on the validation seeds for every condition."""
+    conds = [("baseline", {}, None), ("loss scale x0.5", {"loss_scale": 0.5}, None),
+             ("loss scale x2", {"loss_scale": 2.0}, None), ("forcing review 9 CU", {}, 9.0),
+             ("forcing review 18 CU", {}, 18.0), ("capability q=0.80", {"q": 0.80}, None),
+             ("capability q=0.95", {"q": 0.95}, None)]
+    pols = {"cal": Policy("cal", gate="cal"), "llmdda": FULL}
+    rows = []
+    for name, kw, vff in conds:
+        res = {}
+        for k, p in pols.items():
+            best = None
+            for th in GRID[p.gate]:
+                q_ = replace(p, theta=float(th))
+                m = np.mean([run(incidents(sd, **kw), q_, v_ff=vff)["mean_cost"] for sd in VAL_SEEDS])
+                if best is None or m < best[0]:
+                    best = (m, q_)
+            res[k] = [run(incidents(sd, **kw), best[1], v_ff=vff) for sd in test_seeds]
+            res[k + "_theta"] = best[1].theta
+        a = np.array([x["mean_cost"] for x in res["cal"]]); b = np.array([x["mean_cost"] for x in res["llmdda"]])
+        sa = np.array([x["severe_k"] for x in res["cal"]]); sb = np.array([x["severe_k"] for x in res["llmdda"]])
+        rows.append({"condition": name, "cal_cost": a.mean(), "llmdda_cost": b.mean(),
+                     "cost_reduction_pct": 100 * (1 - b.mean() / a.mean()), "p_cost": stats.wilcoxon(a, b).pvalue,
+                     "cal_severe_k": sa.mean(), "llmdda_severe_k": sb.mean(),
+                     "severe_reduction_pct": 100 * (1 - sb.mean() / sa.mean()),
+                     "cal_auto": np.mean([x["automation"] for x in res["cal"]]),
+                     "llmdda_auto": np.mean([x["automation"] for x in res["llmdda"]]),
+                     "wins_cost": int((b < a).sum()), "n_seeds": len(a),
+                     "cal_theta": res["cal_theta"], "llmdda_tau0": res["llmdda_theta"]})
+    return pd.DataFrame(rows)
+
+
+def latency(n=6000, seed=0):
+    """Wall-clock cost of the LLM-DDA decision layer per incident (excludes the LLM itself)."""
+    import time
+    x = incidents(seed); t0 = time.perf_counter(); run(x, replace(FULL, theta=18.128)); t1 = time.perf_counter()
+    return pd.DataFrame([{"incidents": n, "total_s": t1 - t0, "ms_per_incident": 1000 * (t1 - t0) / n}])
+
+
 def descriptives(seeds=TEST_SEEDS):
     rows = []
     for sd in seeds:
@@ -443,6 +485,8 @@ def main():
     pd.DataFrame({f"{k}|{m}": v[i] for k, v in ts.items() for i, m in enumerate(["cost", "drift_auto"])}
                  ).to_csv(os.path.join(OUT, "figure2_timeseries.csv"), index=False)
     figures(fr, px, ts)
+    sensitivity().to_csv(os.path.join(OUT, "sensitivity.csv"), index=False)
+    latency().to_csv(os.path.join(OUT, "latency.csv"), index=False)
     pd.set_option("display.width", 220, "display.max_columns", 30)
     print(t1.round(3)); print(t2.round(4))
 

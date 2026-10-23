@@ -11,7 +11,7 @@ LLM-DDA decides, for each LLM-proposed network remediation, whether to execute i
 
 ```bash
 pip install -r requirements.txt
-python llmdda.py            # ~5 min on 2 cores: tables, tests, Figures 1-2 -> results/
+python llmdda.py            # ~12 min on 2 cores: tables, tests, sensitivity, Figures 1-2 -> results/
 python graphical_abstract.py
 ```
 
@@ -37,6 +37,8 @@ A from-scratch run reproduces the committed `results/` files exactly.
 | `results/table2_ablation.csv` | Table 2: component ablation with Holm-adjusted paired Wilcoxon tests |
 | `results/tests_*.csv` | Paired tests against baselines (cost, severe escapes) and drift-escape tests |
 | `results/per_seed.csv` | Every policy × seed result |
+| `results/sensitivity.csv` | Supplementary Table S7: one-at-a-time sensitivity (loss scale, review cost, model capability) |
+| `results/latency.csv` | Decision-layer runtime per incident |
 | `results/figure*.csv`, `results/figure*.png/pdf` | Figure data and rendered figures |
 
 ## Key results (30 test seeds)
@@ -50,6 +52,8 @@ Boundary recalibration does not lower average cost, but it contains an unannounc
 
 - autonomous execution falls from 59.0% to 17.0%;
 - escaped errors fall from 381 to 201 per 1000.
+
+Sensitivity: LLM-DDA had lower mean cost than the calibrated gate in 69 of 70 seed-condition pairs. The gain ranges from 3.3% (losses halved) to 25.0% (losses doubled), and severe-escape reduction stays between 58% and 65% in every condition. The decision layer adds about 0.04 ms per incident.
 
 ## License
 
